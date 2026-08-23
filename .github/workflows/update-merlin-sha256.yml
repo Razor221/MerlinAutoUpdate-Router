@@ -36,11 +36,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # Check if there are any differences in the file
-          if git diff --quiet merlin-sha256.txt; then
+          # 1. Add the file to staging first so Git tracks it
+          git add merlin-sha256.txt
+          
+          # 2. Check if there are changes in the staging area (this catches new files too)
+          if git diff --staged --quiet; then
             echo "No changes detected. Skipping commit."
           else
-            git add merlin-sha256.txt
             git commit -m "Automated update: Fetch latest Merlin SHA256 checksums"
             git push
             echo "Changes successfully committed and pushed."
