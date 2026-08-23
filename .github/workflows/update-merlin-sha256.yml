@@ -1,0 +1,47 @@
+name: Update Merlin SHA256 Checksums
+
+on:
+  schedule:
+    # Runs automatically every day at 02:00 UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Adds a "Run workflow" button in the GitHub UI for manual testing
+
+jobs:
+  scrape-and-commit:
+    runs-on: ubuntu-latest
+    
+    # Grants the GitHub Actions bot permission to push commits to your repo
+    permissions:
+      contents: write 
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Fetch and Parse SHA256 Signatures
+        run: |
+          echo "Scraping asuswrt-merlin.net for the latest hashes..."
+          
+          curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | \
+          sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
+          sed -n '/<pre[^>].*>/,/<\/pre>/p' | \
+          sed -e 's/<[^>].*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//' > merlin-sha256.txt
+          
+          echo "Output preview:"
+          head -n 5 merlin-sha256.txt
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are any differences in the file
+          if git diff --quiet merlin-sha256.txt; then
+            echo "No changes detected. Skipping commit."
+          else
+            git add merlin-sha256.txt
+            git commit -m "Automated update: Fetch latest Merlin SHA256 checksums"
+            git push
+            echo "Changes successfully committed and pushed."
+          fi
