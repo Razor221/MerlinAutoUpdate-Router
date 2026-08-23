@@ -5981,7 +5981,7 @@ _CopyGnutonFiles_()
 _CheckOnlineFirmwareSHA256_()
 {
     # Fetch the latest SHA256 checksums from your custom GitHub repository #
-    local GITHUB_RAW_URL="https://raw.githubusercontent.com/Razor221/MerlinAutoUpdate-Router/main/merlin-sha256.txt"
+    local GITHUB_RAW_URL="https://github.com/Razor221/MerlinAutoUpdate-Router/raw/refs/heads/main/merlin-sha256.txt"
 
     checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused "$GITHUB_RAW_URL")"
 
