@@ -5976,20 +5976,18 @@ _CopyGnutonFiles_()
 ##----------------------------------------##
 
 ##----------------------------------------##
-## Modified: Fallback on 403 / Fetch Error ##
+## Modified: Get SHA256 list from merlin-sha26.txt ##
 ##----------------------------------------##
 _CheckOnlineFirmwareSHA256_()
 {
-    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
-        https://www.asuswrt-merlin.net/download            |
-        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' |
-        sed -n '/<pre[^>].*>/,/<\/pre>/p'                  |
-        sed -e 's/<[^>].*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//')"
+    # Fetch the latest SHA256 checksums from your custom GitHub repository #
+    local GITHUB_RAW_URL="https://raw.githubusercontent.com/Razor221/MerlinAutoUpdate-Router/main/merlin-sha256.txt"
+
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused "$GITHUB_RAW_URL")"
 
     if [ -z "$checksums" ]
     then
-        Say "${YELLOWct}**WARNING**${NOct}: Could not fetch signatures online (HTTP 403/Block)."
+        Say "${YELLOWct}**WARNING**${NOct}: Could not fetch signatures from GitHub."
         Say "Falling back to offline SHA256 verification..."
         _CheckOfflineFirmwareSHA256_
         return $?
@@ -5998,10 +5996,12 @@ _CheckOnlineFirmwareSHA256_()
     if [ -f "$firmware_file" ]
     then
         fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print $2}')"
+        # The downloaded text file is already formatted, so we just grep for the filename
         dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | awk -F ' ' '{print $1}')"
+        
         if [ "$fw_sig" != "$dl_sig" ]
         then
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from GitHub."
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             return 1
