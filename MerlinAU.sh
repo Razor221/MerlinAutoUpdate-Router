@@ -5989,17 +5989,17 @@ _CheckOnlineFirmwareSHA256_()
 
     if [ $curl_status -ne 0 ] || [ -z "$checksums" ]
     then
-        Say "${YELLOWct}**WARNING**${NOct}: Could not fetch signatures from GitHub (curl error: $curl_status)."
-        Say "Falling back to offline SHA256 verification..."
-        _CheckOfflineFirmwareSHA256_
-        return $?
+        Say "${REDct}**ERROR**${NOct}: Could not fetch signatures from GitHub (curl error: $curl_status)."
+        _DoCleanUp_ 1
+        _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+        return 1
     fi
 
     if ! printf "%s\n" "$checksums" | grep -qE "[a-fA-F0-9]{64}"; then
-        Say "${YELLOWct}**WARNING**${NOct}: Downloaded file is invalid (possible DNS blockpage). No hashes found."
-        Say "Falling back to offline SHA256 verification..."
-        _CheckOfflineFirmwareSHA256_
-        return $?
+        Say "${REDct}**ERROR**${NOct}: Downloaded file is invalid (possible DNS blockpage). No hashes found."
+        _DoCleanUp_ 1
+        _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+        return 1
     fi
 
     # Added -r to ensure the file isn't just there, but actually readable by the script
@@ -6022,7 +6022,7 @@ _CheckOnlineFirmwareSHA256_()
         if [ "${#fw_sig}" -ne 64 ] || [ "${#dl_sig}" -ne 64 ]
         then
             Say "${REDct}**ERROR**${NOct}: Invalid SHA256 hash length detected (corruption or parse error)."
-            Say "Local  (${#fw_sig} chars): $fw_sig"
+            Say "Local   (${#fw_sig} chars): $fw_sig"
             Say "GitHub (${#dl_sig} chars): $dl_sig"
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
