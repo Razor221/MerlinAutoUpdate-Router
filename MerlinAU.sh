@@ -5980,28 +5980,60 @@ _CopyGnutonFiles_()
 ##----------------------------------------##
 _CheckOnlineFirmwareSHA256_()
 {
-    # Fetch the latest SHA256 checksums from your custom GitHub repository #
     local GITHUB_RAW_URL="https://github.com/Razor221/MerlinAutoUpdate-Router/raw/refs/heads/merlin-sha256.txt-verification/merlin-sha256.txt"
+    # Initialize curl_status to 0
+    local checksums fw_sig dl_sig fw_basename curl_status=0
 
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused "$GITHUB_RAW_URL")"
+    # Added '|| curl_status=$?' to protect against 'set -e' environments
+    checksums="$(curl -fsL --connect-timeout 15 --max-time 60 --retry 4 --retry-delay 5 --retry-connrefused "$GITHUB_RAW_URL" 2>/dev/null)" || curl_status=$?
 
-    if [ -z "$checksums" ]
+    if [ $curl_status -ne 0 ] || [ -z "$checksums" ]
     then
-        Say "${YELLOWct}**WARNING**${NOct}: Could not fetch signatures from GitHub."
+        Say "${YELLOWct}**WARNING**${NOct}: Could not fetch signatures from GitHub (curl error: $curl_status)."
         Say "Falling back to offline SHA256 verification..."
         _CheckOfflineFirmwareSHA256_
         return $?
     fi
 
-    if [ -f "$firmware_file" ]
+    if ! printf "%s\n" "$checksums" | grep -qE "[a-fA-F0-9]{64}"; then
+        Say "${YELLOWct}**WARNING**${NOct}: Downloaded file is invalid (possible DNS blockpage). No hashes found."
+        Say "Falling back to offline SHA256 verification..."
+        _CheckOfflineFirmwareSHA256_
+        return $?
+    fi
+
+    # Added -r to ensure the file isn't just there, but actually readable by the script
+    if [ -f "$firmware_file" ] && [ -r "$firmware_file" ]
     then
-        fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print $2}')"
-        # The downloaded text file is already formatted, so we just grep for the filename
-        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | awk -F ' ' '{print $1}')"
+        fw_basename="$(basename "$firmware_file")"
+        
+        fw_sig="$(sha256sum "$firmware_file" | awk '{print $1}')"
+        
+        dl_sig="$(printf "%s\n" "$checksums" | tr -d '\r' | awk -v fname="$fw_basename" '{ sub(/^\*/, "", $2); if ($2 == fname) { print tolower($1); exit } }')"
+
+        if [ -z "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Firmware '$fw_basename' not found in GitHub SHA256 list."
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        fi
+        
+        if [ "${#fw_sig}" -ne 64 ] || [ "${#dl_sig}" -ne 64 ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Invalid SHA256 hash length detected (corruption or parse error)."
+            Say "Local  (${#fw_sig} chars): $fw_sig"
+            Say "GitHub (${#dl_sig} chars): $dl_sig"
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        fi
         
         if [ "$fw_sig" != "$dl_sig" ]
         then
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from GitHub."
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match GitHub."
+            Say "Local  : $fw_sig"
+            Say "GitHub : $dl_sig"
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             return 1
@@ -6010,7 +6042,7 @@ _CheckOnlineFirmwareSHA256_()
             return 0
         fi
     else
-        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
+        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found or unreadable!"
         _DoCleanUp_ 1
         return 1
     fi
