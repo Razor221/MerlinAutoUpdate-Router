@@ -13,13 +13,13 @@ readonly SCRIPT_VERSION=1.6.6
 readonly SCRIPT_VERSTAG="26081603"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="merlin-sha256.txt-verification"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
 # Script URL Info #
-readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
+readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/Razor221/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
